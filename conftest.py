@@ -38,14 +38,23 @@ def test_student(run_id):
 @pytest.fixture(scope='session')
 def driver():
     opts = Options()
+    opts.page_load_strategy = 'eager'
     opts.add_argument('--headless=new')
     opts.add_argument('--no-sandbox')
+    opts.add_argument('--disable-setuid-sandbox')
     opts.add_argument('--disable-dev-shm-usage')
     opts.add_argument('--disable-gpu')
-    opts.add_argument('--no-zygote')          # required for Docker/ARM64
+    opts.add_argument('--no-zygote')          # required for Docker (all arches)
     opts.add_argument('--window-size=1920,1080')
     opts.add_argument('--disable-extensions')
     opts.add_argument('--disable-software-rasterizer')
+    opts.add_argument('--disable-background-networking')
+    opts.add_argument('--disable-component-update')
+    opts.add_argument('--disable-default-apps')
+    opts.add_argument('--disable-sync')
+    opts.add_argument('--metrics-recording-only')
+    opts.add_argument('--no-first-run')
+    opts.add_argument('--remote-debugging-port=0')
 
     chrome_bin = os.environ.get('CHROME_BIN')
     if chrome_bin:
