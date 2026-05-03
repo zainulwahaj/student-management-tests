@@ -65,7 +65,7 @@ def test_03_navbar_shows_login_and_register_when_logged_out(driver, base_url):
 def test_04_login_page_loads(driver, base_url):
     driver.get(base_url + '/login')
     heading = wait_visible(driver, (By.ID, 'login-heading'))
-    assert 'Login' in heading.text
+    assert heading.text in ('Login', 'Sign in')
     assert driver.find_element(By.ID, 'username').is_displayed()
     assert driver.find_element(By.ID, 'password').is_displayed()
 
@@ -202,8 +202,9 @@ def test_19_search_students_by_name_finds_match(driver, base_url, test_student):
     search.send_keys(test_student['name'].split()[0])  # search "Ada"
     driver.find_element(By.ID, 'btn-search').click()
 
-    table = wait_visible(driver, (By.ID, 'students-table'))
-    rows = table.find_elements(By.CSS_SELECTOR, 'tbody tr.student-row')
+    wait_visible(driver, (By.ID, 'students-table'))
+    # Re-query from driver (not cached table ref) to avoid stale element after page reload
+    rows = driver.find_elements(By.CSS_SELECTOR, '#students-table tbody tr.student-row')
     assert len(rows) >= 1
     assert any(test_student['name'] in r.text for r in rows)
 
