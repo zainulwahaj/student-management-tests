@@ -6,7 +6,9 @@ sequence builds on prior steps — register a user, log in with that user,
 add a student, edit it, delete it). Uses headless Chromium.
 """
 import os
+import socket
 import time
+from urllib.parse import urlsplit, urlunsplit
 import pytest
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -14,7 +16,18 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 
 
-BASE_URL = os.environ.get('APP_URL', 'http://localhost:5000')
+def _browser_safe_url(url):
+    parsed = urlsplit(url)
+    if parsed.scheme == 'http' and parsed.hostname == 'app':
+        ip = socket.gethostbyname(parsed.hostname)
+        netloc = ip
+        if parsed.port:
+            netloc = f'{ip}:{parsed.port}'
+        return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+    return url
+
+
+BASE_URL = _browser_safe_url(os.environ.get('APP_URL', 'http://localhost:5000'))
 TEST_RUN_ID = str(int(time.time()))
 
 
@@ -101,10 +114,12 @@ def pytest_sessionstart(session):
     env_path = os.path.join(rd, 'session-env.txt')
     with open(env_path, 'w', encoding='utf-8') as fh:
         fh.write(f'APP_URL={os.environ.get("APP_URL")!r}\n')
+        fh.write(f'BASE_URL={BASE_URL!r}\n')
         fh.write(f'CHROME_BIN={os.environ.get("CHROME_BIN")!r}\n')
         fh.write(f'CHROMEDRIVER_BIN={os.environ.get("CHROMEDRIVER_BIN")!r}\n')
     print(f'[pytest] Wrote {env_path}', flush=True)
     print(f'[pytest] APP_URL={os.environ.get("APP_URL")!r}', flush=True)
+    print(f'[pytest] BASE_URL={BASE_URL!r}', flush=True)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
@@ -123,6 +138,7 @@ def pytest_runtest_makereport(item, call):
     lines = [
         f'nodeid={item.nodeid}',
         f'APP_URL={os.environ.get("APP_URL")!r}',
+        f'BASE_URL={BASE_URL!r}',
         '',
         '--- pytest failure / traceback ---',
         long_msg,
