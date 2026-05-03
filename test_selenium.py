@@ -17,6 +17,13 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 
 
+def navigate(driver, url, timeout=20):
+    driver.get(url)
+    WebDriverWait(driver, timeout).until(
+        lambda d: d.execute_script('return document.readyState') == 'complete'
+    )
+
+
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 def wait_for(driver, locator, timeout=10):
@@ -43,27 +50,29 @@ def flash_text(driver, timeout=10):
 # ─── 1. Public pages ─────────────────────────────────────────────────────────
 
 def test_01_homepage_loads_with_correct_title(driver, base_url):
-    driver.get(base_url + '/')
-    assert 'Student Management System' in driver.title
+    navigate(driver, base_url + '/')
+    WebDriverWait(driver, 15).until(
+        lambda d: 'Student Management System' in d.title
+    )
     hero = wait_visible(driver, (By.ID, 'hero-title'))
     assert 'Student Management System' in hero.text
 
 
 def test_02_homepage_shows_login_and_register_buttons(driver, base_url):
-    driver.get(base_url + '/')
-    assert driver.find_element(By.ID, 'btn-login').is_displayed()
-    assert driver.find_element(By.ID, 'btn-register').is_displayed()
+    navigate(driver, base_url + '/')
+    assert wait_visible(driver, (By.ID, 'btn-login')).is_displayed()
+    assert wait_visible(driver, (By.ID, 'btn-register')).is_displayed()
 
 
 def test_03_navbar_shows_login_and_register_when_logged_out(driver, base_url):
-    driver.get(base_url + '/')
-    nav = driver.find_element(By.ID, 'main-nav')
+    navigate(driver, base_url + '/')
+    nav = wait_visible(driver, (By.ID, 'main-nav'))
     assert nav.find_element(By.ID, 'nav-login').is_displayed()
     assert nav.find_element(By.ID, 'nav-register').is_displayed()
 
 
 def test_04_login_page_loads(driver, base_url):
-    driver.get(base_url + '/login')
+    navigate(driver, base_url + '/login')
     heading = wait_visible(driver, (By.ID, 'login-heading'))
     assert heading.text in ('Login', 'Sign in')
     assert driver.find_element(By.ID, 'username').is_displayed()
@@ -71,7 +80,7 @@ def test_04_login_page_loads(driver, base_url):
 
 
 def test_05_register_page_loads(driver, base_url):
-    driver.get(base_url + '/register')
+    navigate(driver, base_url + '/register')
     heading = wait_visible(driver, (By.ID, 'register-heading'))
     assert 'Create Account' in heading.text
 
@@ -79,7 +88,7 @@ def test_05_register_page_loads(driver, base_url):
 # ─── 2. Registration ─────────────────────────────────────────────────────────
 
 def test_06_register_with_empty_fields_shows_server_error(driver, base_url):
-    driver.get(base_url + '/register')
+    navigate(driver, base_url + '/register')
     disable_html5_validation(driver)
     driver.find_element(By.ID, 'btn-submit-register').click()
     msg = flash_text(driver)
@@ -87,7 +96,7 @@ def test_06_register_with_empty_fields_shows_server_error(driver, base_url):
 
 
 def test_07_register_new_user_succeeds(driver, base_url, test_user):
-    driver.get(base_url + '/register')
+    navigate(driver, base_url + '/register')
     driver.find_element(By.ID, 'username').send_keys(test_user['username'])
     driver.find_element(By.ID, 'email').send_keys(test_user['email'])
     driver.find_element(By.ID, 'password').send_keys(test_user['password'])
@@ -98,7 +107,7 @@ def test_07_register_new_user_succeeds(driver, base_url, test_user):
 
 
 def test_08_register_duplicate_username_shows_error(driver, base_url, test_user, run_id):
-    driver.get(base_url + '/register')
+    navigate(driver, base_url + '/register')
     driver.find_element(By.ID, 'username').send_keys(test_user['username'])
     driver.find_element(By.ID, 'email').send_keys(f'different_{run_id}@example.com')
     driver.find_element(By.ID, 'password').send_keys('AnotherPass1!')
@@ -107,7 +116,7 @@ def test_08_register_duplicate_username_shows_error(driver, base_url, test_user,
 
 
 def test_09_register_duplicate_email_shows_error(driver, base_url, test_user, run_id):
-    driver.get(base_url + '/register')
+    navigate(driver, base_url + '/register')
     driver.find_element(By.ID, 'username').send_keys(f'other_{run_id}')
     driver.find_element(By.ID, 'email').send_keys(test_user['email'])
     driver.find_element(By.ID, 'password').send_keys('AnotherPass1!')
@@ -118,7 +127,7 @@ def test_09_register_duplicate_email_shows_error(driver, base_url, test_user, ru
 # ─── 3. Login ────────────────────────────────────────────────────────────────
 
 def test_10_login_with_invalid_password_shows_error(driver, base_url, test_user):
-    driver.get(base_url + '/login')
+    navigate(driver, base_url + '/login')
     driver.find_element(By.ID, 'username').send_keys(test_user['username'])
     driver.find_element(By.ID, 'password').send_keys('wrongpassword')
     driver.find_element(By.ID, 'btn-submit-login').click()
@@ -126,7 +135,7 @@ def test_10_login_with_invalid_password_shows_error(driver, base_url, test_user)
 
 
 def test_11_login_with_unknown_username_shows_error(driver, base_url):
-    driver.get(base_url + '/login')
+    navigate(driver, base_url + '/login')
     driver.find_element(By.ID, 'username').send_keys('no_such_user_xyz')
     driver.find_element(By.ID, 'password').send_keys('whatever')
     driver.find_element(By.ID, 'btn-submit-login').click()
@@ -134,7 +143,7 @@ def test_11_login_with_unknown_username_shows_error(driver, base_url):
 
 
 def test_12_login_with_empty_fields_shows_server_error(driver, base_url):
-    driver.get(base_url + '/login')
+    navigate(driver, base_url + '/login')
     disable_html5_validation(driver)
     driver.find_element(By.ID, 'btn-submit-login').click()
     msg = flash_text(driver)
@@ -142,7 +151,7 @@ def test_12_login_with_empty_fields_shows_server_error(driver, base_url):
 
 
 def test_13_login_with_valid_credentials_redirects_to_dashboard(driver, base_url, test_user):
-    driver.get(base_url + '/login')
+    navigate(driver, base_url + '/login')
     driver.find_element(By.ID, 'username').send_keys(test_user['username'])
     driver.find_element(By.ID, 'password').send_keys(test_user['password'])
     driver.find_element(By.ID, 'btn-submit-login').click()
@@ -169,7 +178,7 @@ def test_15_navigate_to_add_student_via_navbar(driver, base_url):
 # ─── 5. Student CRUD ─────────────────────────────────────────────────────────
 
 def test_16_add_student_with_valid_data(driver, base_url, test_student):
-    driver.get(base_url + '/students/add')
+    navigate(driver, base_url + '/students/add')
     driver.find_element(By.ID, 'name').send_keys(test_student['name'])
     driver.find_element(By.ID, 'email').send_keys(test_student['email'])
     Select(driver.find_element(By.ID, 'department')).select_by_visible_text(test_student['department'])
@@ -182,21 +191,21 @@ def test_16_add_student_with_valid_data(driver, base_url, test_student):
 
 
 def test_17_add_student_empty_form_shows_server_error(driver, base_url):
-    driver.get(base_url + '/students/add')
+    navigate(driver, base_url + '/students/add')
     disable_html5_validation(driver)
     driver.find_element(By.ID, 'btn-submit-student').click()
     assert 'All fields are required' in flash_text(driver)
 
 
 def test_18_students_list_contains_added_student(driver, base_url, test_student):
-    driver.get(base_url + '/students')
+    navigate(driver, base_url + '/students')
     table = wait_visible(driver, (By.ID, 'students-table'))
     assert test_student['name'] in table.text
     assert test_student['email'] in table.text
 
 
 def test_19_search_students_by_name_finds_match(driver, base_url, test_student):
-    driver.get(base_url + '/students')
+    navigate(driver, base_url + '/students')
     search = driver.find_element(By.ID, 'search-input')
     search.clear()
     search.send_keys(test_student['name'].split()[0])  # search "Ada"
@@ -210,13 +219,13 @@ def test_19_search_students_by_name_finds_match(driver, base_url, test_student):
 
 
 def test_20_search_with_no_match_shows_empty_message(driver, base_url):
-    driver.get(base_url + '/students?q=zzzzz_no_match_zzzzz')
+    navigate(driver, base_url + '/students?q=zzzzz_no_match_zzzzz')
     msg = wait_visible(driver, (By.ID, 'no-students-msg'))
     assert 'No students found' in msg.text
 
 
 def test_21_edit_student_updates_record(driver, base_url, test_student):
-    driver.get(base_url + '/students')
+    navigate(driver, base_url + '/students')
     rows = driver.find_elements(By.CSS_SELECTOR, 'tr.student-row')
     target = next(r for r in rows if test_student['name'] in r.text)
     target.find_element(By.CSS_SELECTOR, '.btn-edit').click()
@@ -234,7 +243,7 @@ def test_21_edit_student_updates_record(driver, base_url, test_student):
 
 
 def test_22_delete_student_removes_row(driver, base_url, test_student):
-    driver.get(base_url + '/students')
+    navigate(driver, base_url + '/students')
 
     # Bypass the JS confirm() dialog so the form submits cleanly.
     driver.execute_script(
@@ -253,7 +262,7 @@ def test_22_delete_student_removes_row(driver, base_url, test_student):
 # ─── 6. Logout & protected route ─────────────────────────────────────────────
 
 def test_23_logout_clears_session_and_redirects(driver, base_url):
-    driver.get(base_url + '/dashboard')
+    navigate(driver, base_url + '/dashboard')
     driver.find_element(By.ID, 'nav-logout').click()
     WebDriverWait(driver, 10).until(EC.url_matches(r'.*/$|.*/index'))
     nav = driver.find_element(By.ID, 'main-nav')
@@ -261,6 +270,6 @@ def test_23_logout_clears_session_and_redirects(driver, base_url):
 
 
 def test_24_protected_route_redirects_when_not_authenticated(driver, base_url):
-    driver.get(base_url + '/dashboard')
+    navigate(driver, base_url + '/dashboard')
     WebDriverWait(driver, 10).until(EC.url_contains('/login'))
     assert 'Please log in first' in flash_text(driver)

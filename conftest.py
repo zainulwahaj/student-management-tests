@@ -74,7 +74,7 @@ def driver():
     svc = Service(chromedriver_bin) if chromedriver_bin else Service()
 
     drv = webdriver.Chrome(service=svc, options=opts)
-    drv.implicitly_wait(10)
+    drv.implicitly_wait(2)
     drv.set_page_load_timeout(30)
     yield drv
     drv.quit()
