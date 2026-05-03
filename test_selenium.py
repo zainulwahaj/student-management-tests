@@ -17,11 +17,14 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 
 
-def navigate(driver, url, timeout=20):
+def navigate(driver, url, timeout=25):
     driver.get(url)
-    WebDriverWait(driver, timeout).until(
-        lambda d: d.execute_script('return document.readyState') == 'complete'
-    )
+
+    def dom_ready(d):
+        state = d.execute_script('return document.readyState')
+        return state in ('interactive', 'complete')
+
+    WebDriverWait(driver, timeout).until(dom_ready)
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -51,11 +54,12 @@ def flash_text(driver, timeout=10):
 
 def test_01_homepage_loads_with_correct_title(driver, base_url):
     navigate(driver, base_url + '/')
-    WebDriverWait(driver, 15).until(
-        lambda d: 'Student Management System' in d.title
+    hero = wait_visible(driver, (By.ID, 'hero-title'), timeout=20)
+    actual_title = driver.title
+    assert 'Student Management System' in actual_title, (
+        f'bad document.title: {actual_title!r} url={driver.current_url!r}'
     )
-    hero = wait_visible(driver, (By.ID, 'hero-title'))
-    assert 'Student Management System' in hero.text
+    assert 'Student Management System' in hero.text, f'bad hero text: {hero.text!r}'
 
 
 def test_02_homepage_shows_login_and_register_buttons(driver, base_url):

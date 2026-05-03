@@ -22,7 +22,7 @@ COPY . .
 
 RUN mkdir -p /tests/reports
 
-CMD ["pytest", "-v", "--tb=short", \
+CMD ["pytest", "-v", "--tb=native", \
      "--html=/tests/reports/report.html", \
      "--self-contained-html", \
      "--junitxml=/tests/reports/junit.xml"]

@@ -11,10 +11,19 @@ import pytest
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
 
 
 BASE_URL = os.environ.get('APP_URL', 'http://localhost:5000')
 TEST_RUN_ID = str(int(time.time()))
+
+
+def _reports_dir():
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), 'reports')
+
+
+def _failure_artifact_basename(nodeid):
+    return nodeid.replace('::', '__').replace(os.sep, '_')[:220]
 
 
 @pytest.fixture(scope='session')
@@ -83,3 +92,87 @@ def driver():
 def pytest_collection_modifyitems(items):
     """Force tests to run in their declared order so the workflow is coherent."""
     items.sort(key=lambda item: item.name)
+
+
+def pytest_sessionstart(session):
+    rd = _reports_dir()
+    os.makedirs(rd, exist_ok=True)
+    env_path = os.path.join(rd, 'session-env.txt')
+    with open(env_path, 'w', encoding='utf-8') as fh:
+        fh.write(f'APP_URL={os.environ.get("APP_URL")!r}\n')
+        fh.write(f'CHROME_BIN={os.environ.get("CHROME_BIN")!r}\n')
+        fh.write(f'CHROMEDRIVER_BIN={os.environ.get("CHROMEDRIVER_BIN")!r}\n')
+    print(f'[pytest] Wrote {env_path}', flush=True)
+    print(f'[pytest] APP_URL={os.environ.get("APP_URL")!r}', flush=True)
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    if rep.when != 'call' or not rep.failed:
+        return
+
+    rd = _reports_dir()
+    os.makedirs(rd, exist_ok=True)
+    base = _failure_artifact_basename(item.nodeid)
+    txt_path = os.path.join(rd, f'failure-{base}.txt')
+
+    long_msg = getattr(rep, 'longreprtext', None) or str(getattr(rep, 'longrepr', ''))
+    lines = [
+        f'nodeid={item.nodeid}',
+        f'APP_URL={os.environ.get("APP_URL")!r}',
+        '',
+        '--- pytest failure / traceback ---',
+        long_msg,
+        '',
+    ]
+
+    drv = getattr(item, 'funcargs', {}).get('driver')
+    if drv is not None:
+        lines.append('--- WebDriver ---')
+        try:
+            lines.append(f'current_url: {drv.current_url}')
+            lines.append(f'title: {drv.title!r}')
+            try:
+                body_el = drv.find_element(By.TAG_NAME, 'body')
+                lines.append('body[:4000]:')
+                lines.append(body_el.text[:4000])
+            except Exception as body_exc:
+                lines.append(f'(body text unavailable: {body_exc!r})')
+            try:
+                src = drv.page_source
+                lines.append('page_source[:12000]:')
+                lines.append(src[:12000])
+            except Exception as src_exc:
+                lines.append(f'(page_source unavailable: {src_exc!r})')
+        except Exception as drv_exc:
+            lines.append(f'WebDriver snapshot error: {drv_exc!r}')
+        png_path = os.path.join(rd, f'failure-{base}.png')
+        try:
+            drv.save_screenshot(png_path)
+            lines.append('')
+            lines.append(f'screenshot: {png_path}')
+        except Exception as png_exc:
+            lines.append(f'screenshot failed: {png_exc!r}')
+    else:
+        lines.append('(no driver in funcargs; skipping browser snapshot)')
+
+    text = '\n'.join(lines)
+    with open(txt_path, 'w', encoding='utf-8') as fh:
+        fh.write(text)
+
+    summary_path = os.path.join(rd, 'failures-summary.log')
+    with open(summary_path, 'a', encoding='utf-8') as fh:
+        fh.write('\n')
+        fh.write('=' * 80)
+        fh.write('\n')
+        fh.write(text)
+        fh.write('\n')
+
+    print('\n=== TEST FAILURE (see artifacts under tests/reports/) ===', flush=True)
+    print(f'Written: {txt_path}', flush=True)
+    for preview in lines[:40]:
+        print(preview, flush=True)
+    if len(lines) > 40:
+        print(f'... ({len(lines) - 40} more lines in {txt_path})', flush=True)
